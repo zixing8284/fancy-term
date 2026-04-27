@@ -1,0 +1,73 @@
+:root {
+  --bg: #3b251e;
+  --fg: #fe7b10;
+  --error-bg: #180b08;
+}
+
+@font-face {
+  font-family: "PrintChar21";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/PrintChar21.woff2") format("woff2");
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--fg);
+}
+
+body,
+button,
+input,
+pre,
+p,
+h1 {
+  font-family: "PrintChar21", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+body.loading {
+  background: #000;
+}
+
+body.fancy canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.noscript-message,
+.runtime-error {
+  width: min(42rem, calc(100% - 2rem));
+  margin: 2rem;
+  padding: 1rem;
+  background: var(--error-bg);
+  border: 2px solid var(--fg);
+  color: var(--fg);
+}
+
+.noscript-message h1,
+.runtime-error h1,
+.noscript-message p,
+.runtime-error p {
+  margin-bottom: 1rem;
+}
+
+.runtime-error pre {
+  white-space: pre-wrap;
+}
