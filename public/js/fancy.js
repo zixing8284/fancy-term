@@ -21,7 +21,9 @@ const fancyView = (() => {
     terminal,
     inputBuffer = "",
     historyIndex = 0,
-    animationFrameId = null;
+    animationFrameId = null,
+    inputLocked = false,
+    activeStream = null;
 
   const history = (() => {
     try {
@@ -110,10 +112,12 @@ const fancyView = (() => {
     gl.bufferData(gl.ARRAY_BUFFER, terminal.getCharBuffer(), gl.STATIC_DRAW);
   };
 
+  const promptText = () => terminal.promptText || ">";
+
   const redrawInputLine = () => {
     terminal.end();
     terminal.clearToStartOfLine();
-    terminal.addChar(">");
+    terminal.addString(promptText(), false);
     terminal.addString(inputBuffer, false);
     updateBuffers();
   };
@@ -142,12 +146,94 @@ const fancyView = (() => {
       terminal.clear();
     }
 
-    renderOutput(result && result.output ? result.output : ">");
+    if (result && result.prompt) {
+      terminal.promptText = result.prompt;
+    }
+
+    renderOutput(result && result.output ? result.output : promptText());
+  };
+
+  // 仅保留 ASCII 可打印字符 + 制表/换行/回车，避免位图字体出现缺字符。
+  const sanitizeAscii = (text) =>
+    String(text || "").replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "");
+
+  // 流式调用 /api/chat：在终端内逐字渲染回复，同时锁定输入。
+  const streamChat = async (messages) => {
+    inputLocked = true;
+    const controller = new AbortController();
+    activeStream = controller;
+
+    terminal.end();
+    terminal.clearToStartOfLine();
+    updateBuffers();
+
+    let assistantText = "";
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+        signal: controller.signal,
+      });
+      if (!response.ok || !response.body) {
+        const detail = await response.text().catch(() => "");
+        throw new Error(
+          `HTTP ${response.status}${detail ? ": " + detail.slice(0, 120) : ""}`,
+        );
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = sanitizeAscii(decoder.decode(value, { stream: true }));
+        if (!chunk) continue;
+        assistantText += chunk;
+        terminal.addString(chunk, true);
+        updateBuffers();
+      }
+      const tail = sanitizeAscii(decoder.decode());
+      if (tail) {
+        assistantText += tail;
+        terminal.addString(tail, true);
+      }
+    } catch (error) {
+      const message =
+        error && error.name === "AbortError"
+          ? "[aborted]"
+          : `[error: ${(error && error.message) || "chat failed"}]`;
+      terminal.addString("\n" + message, true);
+    } finally {
+      activeStream = null;
+      if (assistantText.trim()) {
+        demoCommands.pushAssistantMessage(assistantText);
+      }
+      terminal.addString("\n\n" + promptText(), false);
+      terminal.addString(inputBuffer, false);
+      updateBuffers();
+      inputLocked = false;
+    }
   };
 
   // 键盘处理只保留终端演示所需功能：输入、提交、历史、滚屏和清行。
   const handleKeydown = async (event) => {
     parameters.startTime = Date.now();
+
+    if (inputLocked) {
+      // 流式输出期间允许 Ctrl+C 取消，其它按键忽略。
+      if (event.ctrlKey && event.key.toLowerCase() === "c" && activeStream) {
+        event.preventDefault();
+        activeStream.abort();
+      } else if (event.key === "PageUp" || event.key === "PageDown") {
+        event.preventDefault();
+        if (event.key === "PageUp") terminal.pageUp();
+        else terminal.pageDown();
+        updateBuffers();
+      } else {
+        event.preventDefault();
+      }
+      return;
+    }
 
     if (event.key === "Enter") {
       event.preventDefault();
@@ -158,7 +244,15 @@ const fancyView = (() => {
       const message = inputBuffer;
       inputBuffer = "";
 
-      renderCommandResult(await demoCommands.send(message));
+      const result = await demoCommands.send(message);
+      if (result && result.stream) {
+        if (result.prompt) terminal.promptText = result.prompt;
+        pushHistory(message);
+        historyIndex = 0;
+        await streamChat(result.messages || []);
+        return;
+      }
+      renderCommandResult(result);
       pushHistory(message);
       historyIndex = 0;
     } else if (event.key === "Backspace") {
@@ -194,12 +288,12 @@ const fancyView = (() => {
       if (event.ctrlKey && event.key.toLowerCase() === "l") {
         event.preventDefault();
         terminal.clear();
-        terminal.addChar(">");
+        terminal.addString(promptText(), false);
         terminal.addString(inputBuffer, false);
       } else if (event.ctrlKey && event.key.toLowerCase() === "u") {
         event.preventDefault();
         terminal.clearToStartOfLine();
-        terminal.addChar(">");
+        terminal.addString(promptText(), false);
         inputBuffer = "";
       } else if (!event.ctrlKey) {
         terminal.addChar(event.key);
@@ -623,9 +717,15 @@ const fancyView = (() => {
   };
 
   const setup = async () => {
-    document.body.className = "fancy";
-    document.body.innerHTML = `<canvas tabindex="0" aria-label="Fancy CRT terminal"></canvas>`;
+    document.body.classList.remove("loading");
+    document.body.classList.add("fancy");
     canvas = document.querySelector("canvas");
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.tabIndex = 0;
+      canvas.setAttribute("aria-label", "Fancy CRT terminal");
+      document.body.appendChild(canvas);
+    }
 
     assets = await loadAssets({
       fontImage: "fonts/PrintChar21.png",

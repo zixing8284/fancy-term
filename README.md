@@ -1,73 +1,43 @@
 # fancy-term
 
-`fancy-term` 是从 `langterm` 中提取出来的独立 WebGL 复古 CRT 网页终端展示。
+WebGL 复古 CRT 终端，在 [langterm](https://github.com/statico/langterm) 基础上，接入了 AI (DeepSeek) 对话功能。
 
-这个版本只保留 fancy 模式：位图字体、终端字符缓冲、WebGL 渲染管线、CRT 后处理、背景合成、键盘输入、命令历史、分页滚动和双击退磁效果。
+> **Credits** — 所有视觉风格、WebGL 渲染管线、GLSL 着色器、位图字体和 CRT 效果均来自 [langterm](https://github.com/statico/langterm)（[Ian Langworth](https://github.com/statico)，MIT License）。本项目仅移除了原项目互动游戏，添加了 AI chat 功能，所有原始资源的著作权归原作者所有。
 
-## 保留内容
-
-- WebGL 伪 CRT 终端外观
-- `Terminal` 字符网格与滚动缓冲
-- 位图字体纹理渲染
-- 背景图、扫描线、弯曲、退磁等 shader 效果
-- 本地命令输入体验
-
-## 移除内容
-
-- 后端 API 调用
-- 游戏会话与互动小说逻辑
-- original 静态主页模式
-- simple 文本输入模式
-- 设备能力检测与多模式切换
-
-## 运行方式
-
-请通过 HTTP 服务器访问，不要直接用 `file://` 打开，否则浏览器通常会阻止 shader 文件加载。
-
-目录内部启动服务器：
+## 快速开始
 
 ```bash
-python -m http.server 8000
-```
-
-然后访问：
-
-```text
-http://localhost:8000/
+pnpm install
+cp .env.local.example .env.local  # 填入 DEEPSEEK_API_KEY
+pnpm dev                          # http://localhost:3000
 ```
 
 ## 内置命令
 
-- `help`：查看命令列表
-- `about`：查看项目说明
-- `clear`：清屏
-- `date`：显示当前浏览器时间
-- `echo TEXT`：回显文本
+| 命令        | 说明               |
+| ----------- | ------------------ |
+| `help`      | 查看命令列表       |
+| `about`     | 项目说明与版权信息 |
+| `clear`     | 清屏               |
+| `date`      | 显示当前时间       |
+| `echo TEXT` | 回显文本           |
+| `chat`      | 进入 AI 对话模式   |
+
+**AI 对话模式**：输入 `chat` 进入，`exit` 退出，`reset` 清空历史。多轮上下文保存在 `sessionStorage`，关闭标签页后清除。Ctrl+C 中断流式输出。
 
 ## 文件结构
 
-```text
-fancy-term/
-├── index.html
-├── css/main.css
-├── js/loader.js
-├── js/terminal.js
-├── js/demo-commands.js
-├── js/fancy.js
-├── js/main.js
-├── shaders/
-├── fonts/
-└── assets/
+```
+app/
+  page.tsx              挂载 canvas 与脚本
+  api/chat/route.ts     DeepSeek text stream API
+public/
+  js/demo-commands.js   命令处理 + AI chat 状态机
+  js/fancy.js           WebGL 渲染 + streamChat
+  js/terminal.js        字符网格与滚动缓冲
+  shaders/              GLSL 着色器（来自 langterm，未修改）
 ```
 
-## 学习入口
+## License
 
-推荐阅读顺序：
-
-1. `index.html`：了解脚本加载顺序。
-2. `js/main.js`：了解独立版本如何启动。
-3. `js/demo-commands.js`：了解无后端命令输出。
-4. `js/terminal.js`：了解字符网格和滚动缓冲。
-5. `js/fancy.js`：了解 WebGL 初始化和渲染流水线。
-
-`shaders/` 目录中的 GLSL 文件保持原样，主要用于终端文字渲染、背景处理、CRT 后处理和最终合成。
+本项目新增代码以 MIT License 发布。原始 langterm 资源版权归 Ian Langworth 所有，详见 [langterm/LICENSE](https://github.com/statico/langterm/blob/master/LICENSE)。

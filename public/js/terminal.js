@@ -13,6 +13,8 @@ class Terminal {
     this.height = 24;
     this.page = this.width * this.height;
     this.cursor = { x: 0, y: 0, visible: true };
+    // 当前行首的提示符，用于阻止退格删掉提示符。
+    this.promptText = ">";
 
     // 保存 5 页内容：前 4 页作为滚动历史，最后 1 页是当前输入页。
     this.buffer = new Array(this.page * 5);
@@ -141,7 +143,8 @@ class Terminal {
     const bufferIndex = cellIndex + this.offset;
 
     // 提示符在行首，退格时不要把它删掉。
-    if (this.cursor.x === 1 && this.buffer[bufferIndex] === ">") return;
+    const promptLen = (this.promptText || "").length;
+    if (this.cursor.x <= promptLen) return;
 
     this.buffer[bufferIndex] = " ";
     this.attrs[bufferIndex] = 0;

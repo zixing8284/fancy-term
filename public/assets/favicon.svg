@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- dark CRT background -->
+  <rect width="32" height="32" rx="3" fill="#0d0705"/>
+  <!-- amber > chevron -->
+  <polyline
+    points="4,7 18,16 4,25"
+    fill="none"
+    stroke="#fe7b10"
+    stroke-width="3.5"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+  <!-- amber block cursor -->
+  <rect x="22" y="9" width="7" height="14" rx="1" fill="#fe7b10"/>
+</svg>
