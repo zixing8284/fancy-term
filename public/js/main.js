@@ -24,14 +24,23 @@ const renderFatalError = (error) => {
   `;
 };
 
-window.addEventListener("load", async () => {
+const init = async () => {
   try {
     await fancyView.setup();
   } catch (error) {
     console.error(error);
     renderFatalError(error);
   }
-});
+};
+
+// Next.js 的 afterInteractive 策略在 load 事件触发后才注入脚本，
+// 因此直接用 addEventListener("load") 会错过已触发的事件，导致黑屏。
+// 这里先检查 readyState，若页面已加载完毕则立即执行，否则等待 load 事件。
+if (document.readyState === "complete") {
+  init();
+} else {
+  window.addEventListener("load", init);
+}
 
 window.addEventListener("beforeunload", () => {
   fancyView.teardown();
